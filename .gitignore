@@ -22,6 +22,6 @@ yarn-debug.log
 yarn-error.log
 __pycache__/
 tests/__pycache__/
-venv/
+.venv/
 .tox/
 .coverage

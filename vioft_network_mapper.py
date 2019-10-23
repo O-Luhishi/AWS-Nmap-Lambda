@@ -1,50 +1,73 @@
-from flask import Flask, jsonify, request
-import nmap
-import requests
-import sys, os, subprocess
-from zappa.asynchronous import task
-app = Flask(__name__)
+import argparse
+import boto3
+import os
+import subprocess
+import logging
 
-@task
-def scan_connected_clients(ip_addr):
+# AWS Lambda Imports
+from botocore.vendored import requests
+
+# Imports local version of nmap
+from res import nmap
+
+# Sets Logger
+logger = logging.getLogger('network_mapper')
+logger.setLevel(logging.INFO)
+
+
+# Makes the NMAP Binary Executable Ready For The Lambda
+def make_nmap_binary_executable():
     command = 'cp ./nmaps /tmp/nmap; chmod 755 /tmp/nmap'
-    print(subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)) 
-    print(os.access('/tmp/nmap', os.R_OK))  # Check for read access
-    print(os.access('/tmp/nmap', os.W_OK))  # Check for write access
-    print(os.access('/tmp/nmap', os.X_OK))  # Check for execution access
-    print(os.access('/tmp/nmap', os.F_OK))  # Check for existence of file
+    logger.info(subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT))
+    logger.info(os.access('/tmp/nmap', os.R_OK))  # Check for read access
+    logger.info(os.access('/tmp/nmap', os.W_OK))  # Check for write access
+    logger.info(os.access('/tmp/nmap', os.X_OK))  # Check for execution access
+    logger.info(os.access('/tmp/nmap', os.F_OK))  # Check for existence of file
+
+
+# Calls Nmap Binary & Scans IP Address Provided
+def scan_for_connected_clients(ip_address):
     scanner = nmap.PortScanner()
-    scan_dict = scanner.scan(ip_addr, arguments='-sP')
-    #return jsonify({"Connected Clients": scan_dict.get("scan")})
+    logger.info("Running Nmap Scan against: " + ip_address)
+    scan_dict = scanner.scan(ip_address, arguments='-sP')
     return scan_dict.get("scan")
 
-@app.route('/nmap', methods=['GET'])
-def test_nmap():
-    command = 'cp ./nmaps /tmp/nmap; chmod 755 /tmp/nmap'
-    print(subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT))
+
+# Port Scan Connected Devices
+def port_scan_connected_clients(ip_address):
     scanner = nmap.PortScanner()
-    return 'Nmap Done'
+    logger.info("Running Nmap Port Scan against: " + ip_address)
+    port_scanner = scanner.scan(ip_address)
+    return port_scanner.get("scan")
 
-@app.route('/clients/list', methods=['POST'])
-def get_connected_clients():
-    ip_addr = request.json['ipaddr']+'/24'
-    scan_connected_clients(ip_addr)
-    return "Scan Is Initiated"
 
-@app.route('/clients/portscan', methods=['POST'])
-def port_scan_router():
-    scanner = nmap.PortScanner()
-    port_scanner = scanner.scan(request.json['ipaddr']+'/24')
-    return jsonify({"Port-Scan-Results": port_scanner.get("scan")})
+# Push Data To DynamoDB
+def post_data_to_dynamo_db(data, table):
+    return 0
 
-@app.route('/hello', methods=['GET'])
-def hello_chump():
-    return 'Hello World!', 200
 
-@app.route('/ping', methods=['GET'])
-def hello_dump():
-    r = requests.get("https://www.google.com")
-    return str(r)
+# Main Function To Be Called By Lambda When Running
+def lambda_handler(event, context):
+    make_nmap_binary_executable()
+    type_of_scan = event["detail"]["type_of_scan"]
+    if type_of_scan == 'connected_clients_scan':
+        scan_results = scan_for_connected_clients(event["detail"]["ip_address"])
+        post_data_to_dynamo_db(scan_results, type_of_scan)
+    elif type_of_scan == "port_scan":
+        scan_results = port_scan_connected_clients(event["detail"]["ip_address"])
+        post_data_to_dynamo_db(scan_results, type_of_scan)
+    return
 
+
+# Function Used To Run This Program Locally
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=80)
+    parser = argparse.ArgumentParser(description="Checks for connected clients in a subnet or portscans a subnet")
+    parser.add_argument("scan_type", help="Type of scan to be performed e.g PortScan or ConnectedClients", type=str)
+    parser.add_argument("ip_address", help="Ip Address of subnet to be scanned", type=str)
+    args = parser.parse_args()
+    if args.scan_type == 'ConnectedClients':
+        results = scan_for_connected_clients(args.ip_address)
+        print(results)
+    elif args.scan_type == "PortScan":
+        results = port_scan_connected_clients(args.ip_address)
+        print(results)
