@@ -17,7 +17,7 @@ logger.setLevel(logging.INFO)
 
 # Makes the NMAP Binary Executable Ready For The Lambda
 def make_nmap_binary_executable():
-    command = 'cp ./nmaps /tmp/nmap; chmod 755 /tmp/nmap'
+    command = 'cp res/nmap_x64_binary /tmp/nmap; chmod 755 /tmp/nmap'
     logger.info(subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT))
     logger.info(os.access('/tmp/nmap', os.R_OK))  # Check for read access
     logger.info(os.access('/tmp/nmap', os.W_OK))  # Check for write access
@@ -28,7 +28,7 @@ def make_nmap_binary_executable():
 # Calls Nmap Binary & Scans IP Address Provided
 def scan_for_connected_clients(ip_address):
     scanner = nmap.PortScanner()
-    logger.info("Running Nmap Scan against: " + ip_address)
+    logger.info("Running Nmap Scan Against: " + ip_address)
     scan_dict = scanner.scan(ip_address, arguments='-sP')
     return scan_dict.get("scan")
 
@@ -36,7 +36,7 @@ def scan_for_connected_clients(ip_address):
 # Port Scan Connected Devices
 def port_scan_connected_clients(ip_address):
     scanner = nmap.PortScanner()
-    logger.info("Running Nmap Port Scan against: " + ip_address)
+    logger.info("Running Nmap Port Scan Against: " + ip_address)
     port_scanner = scanner.scan(ip_address)
     return port_scanner.get("scan")
 
