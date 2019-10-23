@@ -25,3 +25,4 @@ tests/__pycache__/
 .venv/
 .tox/
 .coverage
+network-mapper-lambda-1.0.0.zip
