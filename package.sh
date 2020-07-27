@@ -7,8 +7,6 @@ export TMP_FILE="tmp_deployment_folder"
 # Zip Dependencies from virtualenv and root folder
 mkdir ${TMP_FILE}
 #pip install -r requirements.txt -t ${TMP_FILE}
-cp -r vioft_network_mapper.py res/ ${TMP_FILE}
+cp -r network_mapper.py res/ ${TMP_FILE}
 cd ${TMP_FILE}; zip -r ../${ZIP_FILE} *; cd ../
 rm -rf ${TMP_FILE}
-
-
